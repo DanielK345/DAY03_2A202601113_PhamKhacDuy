@@ -1,10 +1,4 @@
-"""
-🚀 CORE AGENT APP (Role 4: Core Developer / Integrator)
-
-Trạng thái hiện tại: Mốc 2 — Chatbot Baseline.
-Phần ReAct Agent Loop sẽ được tích hợp ở Mốc 3 sau khi Role 2 và Role 3
-hoàn thiện tool contract, ReAct prompt và guardrails.
-"""
+"""Role 4 application entry point for the Chatbot Baseline and ReAct Agent."""
 
 import json
 import os
@@ -24,6 +18,7 @@ if sys.stdout.encoding != "utf-8":
         pass
 
 # Import các thành phần từ file của Role 2, Role 3 & Multi-Provider Adapter
+from agent_core import run_react_agent as run_react_loop
 from tools import AVAILABLE_TOOLS
 from prompts import CHATBOT_BASELINE_PROMPT, REACT_SYSTEM_PROMPT, MAX_ITERATIONS
 from providers import get_llm_provider
@@ -43,20 +38,35 @@ def run_baseline_chatbot(user_query: str, provider):
     print(f"\n💬 [CHATBOT BASELINE] Câu hỏi: {user_query}")
     response = provider.generate(user_query, system_prompt=CHATBOT_BASELINE_PROMPT).strip()
     print(f"🤖 Chatbot trả lời:\n{response}")
+    return {"answer": response, "tool_calls": 0}
 
 
 def run_react_agent(user_query: str, provider):
-    """
-    Vòng lặp ReAct Agent (Thought -> Action -> Observation) có Guardrails.
-
-    ⏳ MỐC 3: phần lõi do Trường viết trong src/agent_core.py, app.py chỉ gọi và in.
-       Hợp đồng hàm đã chốt:
-           run_react_agent(user_query, provider, tools, max_iterations) -> dict
-    """
+    """Integrate Role 2 tools and Role 3 prompts through the ReAct core."""
     print(f"\n🤖 [REACT AGENT] Câu hỏi: {user_query}")
     print(f"🛠️ Agent đang có {len(AVAILABLE_TOOLS)} tool: {', '.join(AVAILABLE_TOOLS)}")
     print(f"🛡️ Guardrail: tối đa {MAX_ITERATIONS} vòng lặp")
-    print("⏳ Vòng lặp ReAct chưa lắp — chờ src/agent_core.py (Mốc 3).")
+
+    result = run_react_loop(
+        user_query=user_query,
+        provider=provider,
+        tools=AVAILABLE_TOOLS,
+        system_prompt=REACT_SYSTEM_PROMPT,
+        max_iterations=MAX_ITERATIONS,
+    )
+
+    for item in result["trace"]:
+        print(f"\n--- 🔄 Vòng lặp ReAct (Step {item['step']}/{MAX_ITERATIONS}) ---")
+        if item["thought"]:
+            print(f"🧠 Thought: {item['thought']}")
+        print(f"🛠️ Action: {item['name']}[{', '.join(item['arguments'])}]")
+        print(f"👁️ Observation: {item['observation']}")
+
+    if result["termination_reason"] == "max_iterations":
+        print(f"\n🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn {MAX_ITERATIONS} vòng lặp.")
+    print(f"\n🏁 Final Answer: {result['answer']}")
+    print(f"📊 Tool calls: {result['tool_calls']}")
+    return result
 
 
 if __name__ == "__main__":
