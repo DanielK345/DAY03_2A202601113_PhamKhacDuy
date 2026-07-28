@@ -1,0 +1,42 @@
+{
+  "CV101": {
+    "name": "Nguyễn Văn An",
+    "jd_id": "JD001",
+    "status": "pending",
+    "applied_at": "2026-07-20",
+    "email": "an.nguyen@email.com",
+    "summary": "3 năm kinh nghiệm Python/FastAPI, từng làm tại startup Fintech.",
+    "skills": ["Python", "FastAPI", "PostgreSQL", "Docker"],
+    "experience_years": 3
+  },
+  "CV102": {
+    "name": "Trần Thị Bình",
+    "jd_id": "JD001",
+    "status": "pending",
+    "applied_at": "2026-07-21",
+    "email": "binh.tran@email.com",
+    "summary": "1 năm kinh nghiệm Python, chủ yếu làm script automation.",
+    "skills": ["Python", "Django"],
+    "experience_years": 1
+  },
+  "CV103": {
+    "name": "Lê Minh Khoa",
+    "jd_id": "JD002",
+    "status": "pending",
+    "applied_at": "2026-07-22",
+    "email": "khoa.le@email.com",
+    "summary": "2 năm nghiên cứu LLM tại trường ĐH, có 1 bài báo NeurIPS.",
+    "skills": ["Python", "PyTorch", "LLM", "RAG", "MLflow"],
+    "experience_years": 2
+  },
+  "CV104": {
+    "name": "Phạm Hồng Nhung",
+    "jd_id": "JD003",
+    "status": "pending",
+    "applied_at": "2026-07-23",
+    "email": "nhung.pham@email.com",
+    "summary": "4 năm PM tại công ty SaaS B2B, thành thạo SQL và Jira.",
+    "skills": ["Product Strategy", "SQL", "Scrum", "Jira"],
+    "experience_years": 4
+  }
+}
