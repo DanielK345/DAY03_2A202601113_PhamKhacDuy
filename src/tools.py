@@ -1,264 +1,265 @@
+"""Read-only recruitment tools backed by the project's CSV datasets.
+
+These tools support candidate discovery and human review. They must not make
+final hiring decisions or contact candidates.
 """
-🛠️ TOOL REGISTRY & SCHEMAS (Dành cho Role 2: Tool & Spec Engineer)
-Chủ đề: Hệ thống Tuyển dụng Thông minh (JD / CV Matching)
-Nơi khai báo tất cả các "món đồ nghề" mà ReAct Agent có thể gọi.
-"""
+
+import csv
+import re
+import unicodedata
+from functools import lru_cache
+from pathlib import Path
 
 
-def list_jobs() -> str:
-    """
-    Liệt kê tất cả các vị trí tuyển dụng hiện đang mở (available).
-
-    Không cần tham số đầu vào.
-
-    Returns:
-        str: Danh sách các Job với ID, tên vị trí, phòng ban và hạn nộp hồ sơ.
-             Trả về thông báo nếu không có job nào đang mở.
-
-    Ví dụ kết quả:
-        📋 DANH SÁCH VỊ TRÍ TUYỂN DỤNG ĐANG MỞ:
-          [JD001] Backend Engineer (Python) | Phòng: Engineering | Hạn nộp: 2026-08-15 | Số lượng: 2 người
-          [JD002] AI/ML Engineer | Phòng: AI Lab | Hạn nộp: 2026-08-30 | Số lượng: 1 người
-    """
-    # TODO: Implement logic — truy vấn danh sách job đang mở từ DB / file JSON
-    raise NotImplementedError
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+JOBS_CSV = DATA_DIR / "JOB_DATA_FINAL.csv"
+CANDIDATES_CSV = DATA_DIR / "USER_DATA_FINAL.csv"
+DEFAULT_RESULT_LIMIT = 5
+MAX_RESULT_LIMIT = 10
+TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+STOP_WORDS = {
+    "va", "la", "cho", "cua", "trong", "voi", "mot", "nhung", "cac",
+    "duoc", "theo", "tai", "tu", "den", "nhan", "vien", "cong", "ty",
+    "viec", "lam", "kinh", "nghiem", "yeu", "cau", "co", "khong",
+}
 
 
-def get_job_description(jd_id: str) -> str:
-    """
-    Lấy toàn bộ nội dung mô tả công việc (Job Description) theo ID.
-
-    Args:
-        jd_id (str): Mã Job Description (Ví dụ: 'JD001', 'JD002').
-
-    Returns:
-        str: Chi tiết JD gồm tên vị trí, phòng ban, trạng thái tuyển dụng,
-             số lượng cần tuyển, hạn nộp hồ sơ, mức lương, yêu cầu bắt buộc
-             và kỹ năng cộng thêm (nice-to-have).
-             Trả về thông báo lỗi nếu không tìm thấy jd_id.
-
-    Ví dụ kết quả:
-        📄 JD001 — Backend Engineer (Python)
-          Phòng ban     : Engineering
-          Trạng thái    : Đang tuyển
-          Số lượng tuyển: 2 người
-          Hạn nộp hồ sơ : 2026-08-15
-          Mức lương     : 25 - 40 triệu VNĐ / tháng
-          ✅ Yêu cầu bắt buộc: ...
-          ⭐ Kỹ năng cộng thêm: ...
-    """
-    # TODO: Implement logic — tìm jd_id trong DB / file JSON, trả về thông tin chi tiết
-    raise NotImplementedError
+def _normalize(value: object) -> str:
+    """Normalize Vietnamese text for accent-insensitive matching."""
+    text = unicodedata.normalize("NFD", str(value or "").casefold())
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return text.replace("đ", "d")
 
 
-def get_pending_candidates(jd_id: str) -> str:
-    """
-    Lấy danh sách ứng viên chưa được xử lý (status='pending') cho một vị trí JD cụ thể.
-
-    Args:
-        jd_id (str): Mã Job Description cần xem ứng viên (Ví dụ: 'JD001').
-
-    Returns:
-        str: Danh sách ứng viên pending gồm candidate_id, tên, ngày ứng tuyển
-             và tóm tắt hồ sơ.
-             Trả về thông báo nếu jd_id không tồn tại hoặc không có ứng viên nào pending.
-
-    Ví dụ kết quả:
-        👥 Ứng viên đang chờ xử lý cho JD001 (2 người):
-          [CV101] Nguyễn Văn An | Nộp: 2026-07-20 | Tóm tắt: 3 năm Python/FastAPI...
-          [CV102] Trần Thị Bình | Nộp: 2026-07-21 | Tóm tắt: 1 năm Python...
-    """
-    # TODO: Implement logic — lọc candidates theo jd_id và status == 'pending'
-    raise NotImplementedError
+def _shorten(value: object, length: int = 420) -> str:
+    text = " ".join(str(value or "").split())
+    return text if len(text) <= length else f"{text[:length].rstrip()}..."
 
 
-def get_resume_content(candidate_id: str) -> str:
-    """
-    Đọc và trả về toàn bộ nội dung CV (hồ sơ) của một ứng viên.
-
-    Args:
-        candidate_id (str): Mã định danh ứng viên (Ví dụ: 'CV101', 'CV102').
-
-    Returns:
-        str: Thông tin chi tiết CV gồm họ tên, email, vị trí ứng tuyển,
-             trạng thái hồ sơ, ngày ứng tuyển, số năm kinh nghiệm,
-             danh sách kỹ năng và tóm tắt bản thân.
-             Trả về thông báo lỗi nếu không tìm thấy candidate_id.
-
-    Ví dụ kết quả:
-        📝 CV ỨNG VIÊN — CV101
-          Họ tên              : Nguyễn Văn An
-          Email               : an.nguyen@email.com
-          Ứng tuyển vị trí   : JD001
-          Trạng thái hồ sơ   : pending
-          Ngày ứng tuyển     : 2026-07-20
-          Số năm kinh nghiệm : 3 năm
-          Kỹ năng            : Python, FastAPI, PostgreSQL, Docker
-          Tóm tắt bản thân  : 3 năm kinh nghiệm Python/FastAPI...
-    """
-    # TODO: Implement logic — tìm candidate_id trong DB / file JSON, trả về nội dung CV
-    raise NotImplementedError
+def _keywords(value: object) -> set[str]:
+    return {
+        token
+        for token in TOKEN_PATTERN.findall(_normalize(value))
+        if len(token) >= 3 and token not in STOP_WORDS
+    }
 
 
-def check_availability(interviewer_id: str, date: str) -> str:
-    """
-    Kiểm tra lịch trống của người phỏng vấn vào một ngày cụ thể.
+def _to_limit(limit: int | str) -> int:
+    try:
+        return max(1, min(int(limit), MAX_RESULT_LIMIT))
+    except (TypeError, ValueError):
+        return DEFAULT_RESULT_LIMIT
+
+
+@lru_cache(maxsize=1)
+def _load_jobs() -> list[dict[str, str]]:
+    if not JOBS_CSV.exists():
+        return []
+    with JOBS_CSV.open("r", encoding="utf-8-sig", newline="") as file:
+        return list(csv.DictReader(file))
+
+
+@lru_cache(maxsize=1)
+def _load_candidates() -> list[dict[str, str]]:
+    if not CANDIDATES_CSV.exists():
+        return []
+    with CANDIDATES_CSV.open("r", encoding="utf-8-sig", newline="") as file:
+        return list(csv.DictReader(file))
+
+
+def _find_by_id(rows: list[dict[str, str]], field: str, record_id: str) -> dict[str, str] | None:
+    target = str(record_id).strip()
+    return next((row for row in rows if row.get(field, "").strip() == target), None)
+
+
+def _job_search_text(job: dict[str, str]) -> str:
+    fields = ("Job Title", "Name Company", "Industry", "Job Address", "Job Requirements")
+    return _normalize(" ".join(job.get(field, "") for field in fields))
+
+
+def _candidate_search_text(candidate: dict[str, str]) -> str:
+    fields = ("User Name", "Industry", "Desired Job", "Workplace Desired", "Skills", "Target")
+    return _normalize(" ".join(candidate.get(field, "") for field in fields))
+
+
+def search_jobs(keyword: str = "", location: str = "", limit: int = DEFAULT_RESULT_LIMIT) -> str:
+    """Find jobs by keyword and optional location from JOB_DATA_FINAL.csv.
 
     Args:
-        interviewer_id (str): Mã người phỏng vấn (Ví dụ: 'IV01', 'IV02').
-        date (str): Ngày cần kiểm tra, định dạng 'YYYY-MM-DD' (Ví dụ: '2026-08-05').
-
-    Returns:
-        str: Danh sách khung giờ còn trống của người phỏng vấn trong ngày đó.
-             Trả về thông báo nếu không có khung giờ nào trống
-             hoặc không tìm thấy interviewer_id.
-
-    Ví dụ kết quả:
-        📅 Lịch trống của Đinh Văn Đức (Engineering Lead) ngày 2026-08-05:
-          - 09:00
-          - 14:00
+        keyword: Text to match against title, company, industry, or requirements.
+        location: Optional city or location text to match against the job address.
+        limit: Number of results to return, from 1 to 10.
     """
-    # TODO: Implement logic — lọc available_slots của interviewer_id theo ngày date
-    raise NotImplementedError
+    jobs = _load_jobs()
+    if not jobs:
+        return "LỖI: Không tìm thấy file dữ liệu việc làm JOB_DATA_FINAL.csv."
+
+    keyword_query = _normalize(keyword)
+    location_query = _normalize(location)
+    matches = [
+        job
+        for job in jobs
+        if (not keyword_query or keyword_query in _job_search_text(job))
+        and (not location_query or location_query in _normalize(job.get("Job Address", "")))
+    ]
+    if not matches:
+        return "Không tìm thấy việc làm phù hợp với điều kiện tra cứu."
+
+    result_limit = _to_limit(limit)
+    lines = [f"Tìm thấy {len(matches)} việc làm, hiển thị {min(len(matches), result_limit)} kết quả:"]
+    for job in matches[:result_limit]:
+        lines.append(
+            f"- [{job['JobID']}] {job.get('Job Title', 'Không rõ vị trí')} | "
+            f"{job.get('Name Company', 'Không rõ công ty')} | "
+            f"{job.get('Job Address', 'Không rõ địa điểm')} | "
+            f"Lương: {job.get('Salary', 'Không rõ')}"
+        )
+    return "\n".join(lines)
 
 
-def book_interview(candidate_id: str, time_slot: str, interviewer_id: str) -> str:
+def list_jobs(limit: int = DEFAULT_RESULT_LIMIT) -> str:
+    """List a small, prompt-safe sample of jobs in the dataset."""
+    return search_jobs(limit=limit)
+
+
+def get_job_description(job_id: str) -> str:
+    """Return a job record by its real JobID from JOB_DATA_FINAL.csv."""
+    job = _find_by_id(_load_jobs(), "JobID", job_id)
+    if job is None:
+        return f"LỖI: Không tìm thấy JobID '{job_id}'."
+
+    return "\n".join(
+        [
+            f"JOB [{job['JobID']}]: {job.get('Job Title', 'Không rõ')}",
+            f"Công ty: {job.get('Name Company', 'Không rõ')}",
+            f"Ngành: {job.get('Industry', 'Không rõ')}",
+            f"Địa điểm: {job.get('Job Address', 'Không rõ')}",
+            f"Loại việc: {job.get('Job Type', 'Không rõ')}",
+            f"Kinh nghiệm: {job.get('Years of Experience', 'Không rõ')}",
+            f"Lương: {job.get('Salary', 'Không rõ')}",
+            f"Hạn nộp: {job.get('Submission Deadline', 'Không rõ')}",
+            f"Yêu cầu: {_shorten(job.get('Job Requirements'))}",
+            f"Mô tả: {_shorten(job.get('Job Description'), 900)}",
+        ]
+    )
+
+
+def search_candidates(keyword: str = "", location: str = "", limit: int = DEFAULT_RESULT_LIMIT) -> str:
+    """Find candidate profiles by skills, desired role, industry, or location.
+
+    The result is for HR review only; it is not an automated hiring decision.
     """
-    Đặt lịch phỏng vấn cho ứng viên với người phỏng vấn tại khung giờ cụ thể.
+    candidates = _load_candidates()
+    if not candidates:
+        return "LỖI: Không tìm thấy file dữ liệu ứng viên USER_DATA_FINAL.csv."
 
-    ⚠️  HITL REQUIRED (Human-In-The-Loop):
-        Hành động này có tác động trực tiếp đến ứng viên (gửi email mời phỏng vấn).
-        Agent PHẢI xác nhận với người dùng HR trước khi thực thi.
-        Tuyệt đối không được tự động gọi tool này mà không có phê duyệt của HR.
+    keyword_query = _normalize(keyword)
+    location_query = _normalize(location)
+    matches = [
+        candidate
+        for candidate in candidates
+        if (not keyword_query or keyword_query in _candidate_search_text(candidate))
+        and (not location_query or location_query in _normalize(candidate.get("Workplace Desired", "")))
+    ]
+    if not matches:
+        return "Không tìm thấy ứng viên phù hợp với điều kiện tra cứu."
 
-    Sau khi đặt thành công, hệ thống sẽ tự động:
-      - Gửi Email mời phỏng vấn tới ứng viên
-      - Cập nhật trạng thái ứng viên thành 'interview_scheduled'
-      - Xóa khung giờ đó khỏi lịch trống của người phỏng vấn
+    result_limit = _to_limit(limit)
+    lines = [f"Tìm thấy {len(matches)} ứng viên, hiển thị {min(len(matches), result_limit)} kết quả:"]
+    for candidate in matches[:result_limit]:
+        lines.append(
+            f"- [{candidate['UserID']}] {candidate.get('User Name', 'Không rõ')} | "
+            f"Mong muốn: {candidate.get('Desired Job', 'Không rõ')} | "
+            f"Địa điểm: {candidate.get('Workplace Desired', 'Không rõ')} | "
+            f"Kinh nghiệm: {candidate.get('Work Experience', 'Không rõ')}"
+        )
+    return "\n".join(lines)
 
-    Args:
-        candidate_id (str): Mã ứng viên cần đặt lịch (Ví dụ: 'CV101').
-        time_slot (str): Khung giờ phỏng vấn, định dạng 'YYYY-MM-DD HH:MM'
-                         (Ví dụ: '2026-08-05 09:00').
-        interviewer_id (str): Mã người phỏng vấn (Ví dụ: 'IV01').
 
-    Returns:
-        str: Xác nhận lịch phỏng vấn đã được đặt thành công kèm thông tin tóm tắt.
-             Trả về thông báo lỗi nếu ứng viên / người phỏng vấn không tồn tại
-             hoặc khung giờ không còn trống.
+def get_candidate_profile(user_id: str) -> str:
+    """Return a candidate profile by its real UserID from USER_DATA_FINAL.csv."""
+    candidate = _find_by_id(_load_candidates(), "UserID", user_id)
+    if candidate is None:
+        return f"LỖI: Không tìm thấy UserID '{user_id}'."
 
-    Ví dụ kết quả:
-        ✅ ĐÃ ĐẶT LỊCH PHỎNG VẤN THÀNH CÔNG
-          Ứng viên   : Nguyễn Văn An (CV101)
-          Người PV   : Đinh Văn Đức (IV01)
-          Thời gian  : 2026-08-05 09:00
-          📧 [AUTO] Email mời phỏng vấn đã được gửi tới: an.nguyen@email.com
-          🔄 [AUTO] Trạng thái ứng viên → 'interview_scheduled'
+    return "\n".join(
+        [
+            f"ỨNG VIÊN [{candidate['UserID']}]: {candidate.get('User Name', 'Không rõ')}",
+            f"Ngành: {candidate.get('Industry', 'Không rõ')}",
+            f"Vị trí mong muốn: {candidate.get('Desired Job', 'Không rõ')}",
+            f"Nơi làm việc mong muốn: {candidate.get('Workplace Desired', 'Không rõ')}",
+            f"Mức lương mong muốn: {candidate.get('Desired Salary', 'Không rõ')}",
+            f"Học vấn: {candidate.get('Degree', 'Không rõ')}",
+            f"Kinh nghiệm: {candidate.get('Work Experience', 'Không rõ')}",
+            f"Kỹ năng: {_shorten(candidate.get('Skills'), 900)}",
+            f"Mục tiêu: {_shorten(candidate.get('Target'), 700)}",
+        ]
+    )
+
+
+def get_resume_content(user_id: str) -> str:
+    """Compatibility alias for get_candidate_profile."""
+    return get_candidate_profile(user_id)
+
+
+def score_candidate(job_id: str, user_id: str) -> str:
+    """Provide a transparent, heuristic job-profile similarity score for HR review.
+
+    This is decision support only. A human must review the source profile and
+    job description before any interview or hiring decision.
     """
-    # TODO: Implement logic — validate inputs, đặt lịch, cập nhật status, trigger email
-    raise NotImplementedError
+    job = _find_by_id(_load_jobs(), "JobID", job_id)
+    candidate = _find_by_id(_load_candidates(), "UserID", user_id)
+    if job is None:
+        return f"LỖI: Không tìm thấy JobID '{job_id}'."
+    if candidate is None:
+        return f"LỖI: Không tìm thấy UserID '{user_id}'."
 
+    job_title_terms = _keywords(job.get("Job Title"))
+    candidate_role_terms = _keywords(candidate.get("Desired Job"))
+    role_matches = sorted(job_title_terms & candidate_role_terms)
+    role_score = round(30 * len(role_matches) / max(1, len(job_title_terms)))
 
-def notify_candidate_result(candidate_id: str, result: str, message: str) -> str:
-    """
-    Gửi thông báo kết quả tuyển dụng tới ứng viên sau khi có quyết định cuối cùng.
+    job_requirement_terms = _keywords(f"{job.get('Job Requirements', '')} {job.get('Job Description', '')}")
+    candidate_skill_terms = _keywords(f"{candidate.get('Skills', '')} {candidate.get('Target', '')}")
+    skill_matches = sorted(job_requirement_terms & candidate_skill_terms)
+    skill_score = round(50 * min(len(skill_matches), 20) / 20)
 
-    ⚠️  HITL REQUIRED (Human-In-The-Loop):
-        Hành động này gửi email trực tiếp tới ứng viên.
-        Agent PHẢI xác nhận với HR trước khi thực thi.
-        Tuyệt đối không tự động gọi tool này mà không có phê duyệt của HR.
+    job_industry = _normalize(job.get("Industry"))
+    candidate_industry = _normalize(candidate.get("Industry"))
+    industry_score = 10 if job_industry and (job_industry in candidate_industry or candidate_industry in job_industry) else 0
 
-    Sau khi gửi thành công, hệ thống sẽ tự động:
-      - Gửi Email thông báo kết quả (đỗ / trượt) tới ứng viên
-      - Cập nhật trạng thái ứng viên tương ứng ('passed' hoặc 'rejected')
+    job_location = _normalize(job.get("Job Address"))
+    candidate_location = _normalize(candidate.get("Workplace Desired"))
+    location_score = 10 if job_location and candidate_location and (job_location in candidate_location or candidate_location in job_location) else 0
 
-    Args:
-        candidate_id (str): Mã ứng viên cần gửi thông báo (Ví dụ: 'CV101', 'CV102').
-        result (str): Kết quả tuyển dụng, chỉ nhận một trong hai giá trị:
-                      - 'passed'   — Ứng viên đỗ, gửi email chúc mừng / mời onboard
-                      - 'rejected' — Ứng viên trượt, gửi email cảm ơn / từ chối lịch sự
-        message (str): Nội dung thông báo gửi kèm trong email.
-                       Không được để trống.
-                       (Ví dụ passed  : 'Chúc mừng! Bạn đã vượt qua vòng phỏng vấn.')
-                       (Ví dụ rejected: 'Kinh nghiệm chưa đủ 2 năm theo yêu cầu JD.')
+    total_score = role_score + skill_score + industry_score + location_score
+    recommendation = (
+        "Ưu tiên HR xem xét" if total_score >= 60 else "Cần HR xem xét thủ công thêm"
+    )
+    matched_display = ", ".join(skill_matches[:12]) or "Chưa phát hiện từ khóa trùng rõ ràng"
 
-    Returns:
-        str: Xác nhận email đã được gửi và trạng thái ứng viên đã được cập nhật.
-             Trả về thông báo lỗi nếu candidate_id không tồn tại,
-             result không hợp lệ, hoặc message bị để trống.
+    return "\n".join(
+        [
+            f"ĐÁNH GIÁ HỖ TRỢ HR: UserID {user_id} với JobID {job_id}",
+            f"Ứng viên: {candidate.get('User Name', 'Không rõ')}",
+            f"Vị trí: {job.get('Job Title', 'Không rõ')}",
+            f"Điểm heuristic: {total_score}/100",
+            f"- Tương đồng vị trí: {role_score}/30 ({', '.join(role_matches) or 'không rõ'})",
+            f"- Từ khóa kỹ năng/nhiệm vụ: {skill_score}/50 ({matched_display})",
+            f"- Ngành: {industry_score}/10 | Địa điểm: {location_score}/10",
+            f"Khuyến nghị: {recommendation}.",
+            "Lưu ý: Điểm này chỉ hỗ trợ sàng lọc; HR phải kiểm tra JD và hồ sơ gốc trước quyết định.",
+        ]
+    )
 
-    Ví dụ kết quả (passed):
-        📬 ĐÃ GỬI THÔNG BÁO KẾT QUẢ (Đã có xác nhận HITL)
-          Ứng viên   : Nguyễn Văn An (CV101)
-          Kết quả    : ✅ ĐỖ
-          📧 [AUTO] Email chúc mừng đã được gửi tới: an.nguyen@email.com
-          🔄 [AUTO] Trạng thái ứng viên → 'passed'
-
-    Ví dụ kết quả (rejected):
-        📬 ĐÃ GỬI THÔNG BÁO KẾT QUẢ (Đã có xác nhận HITL)
-          Ứng viên   : Trần Thị Bình (CV102)
-          Kết quả    : ❌ TRƯỢT
-          📧 [AUTO] Email cảm ơn/từ chối đã được gửi tới: binh.tran@email.com
-          🔄 [AUTO] Trạng thái ứng viên → 'rejected'
-    """
-    # TODO: Implement logic — validate result in ['passed', 'rejected'], validate message,
-    #       cập nhật trạng thái ứng viên, trigger email thông báo kết quả tương ứng
-    raise NotImplementedError
-
-
-def score_candidate(jd_id: str, candidate_id: str) -> str:
-    """
-    Chấm điểm mức độ phù hợp của một ứng viên so với yêu cầu của Job Description.
-
-    So sánh nội dung CV (kỹ năng, số năm kinh nghiệm, tóm tắt bản thân)
-    với các tiêu chí bắt buộc và kỹ năng cộng thêm trong JD,
-    sau đó trả về điểm tổng hợp và nhận xét chi tiết theo từng tiêu chí.
-
-    Args:
-        jd_id (str): Mã Job Description dùng làm tiêu chí chấm điểm
-                     (Ví dụ: 'JD001').
-        candidate_id (str): Mã ứng viên cần được chấm điểm
-                            (Ví dụ: 'CV101').
-
-    Returns:
-        str: Báo cáo chấm điểm gồm:
-               - Điểm tổng (thang 100)
-               - Điểm từng tiêu chí: kinh nghiệm, kỹ năng bắt buộc, kỹ năng cộng thêm
-               - Danh sách kỹ năng match / thiếu so với JD
-               - Khuyến nghị hành động: 'Mời phỏng vấn' / 'Cân nhắc' / 'Từ chối'
-             Trả về thông báo lỗi nếu jd_id hoặc candidate_id không tồn tại.
-
-    Ví dụ kết quả:
-        🎯 KẾT QUẢ CHẤM ĐIỂM CV — CV101 vs JD001
-          Ứng viên        : Nguyễn Văn An
-          Vị trí          : Backend Engineer (Python)
-
-          📊 Điểm tổng    : 85 / 100
-          ├─ Kinh nghiệm  : 30 / 30  (3 năm >= yêu cầu 2 năm ✅)
-          ├─ Kỹ năng bắt buộc: 40 / 50  (thiếu: Redis)
-          └─ Kỹ năng cộng thêm: 15 / 20  (có: Docker; thiếu: Kafka, Kubernetes)
-
-          ✅ Kỹ năng match : Python, FastAPI, PostgreSQL, Docker
-          ❌ Kỹ năng thiếu : Redis
-
-          💡 Khuyến nghị  : Mời phỏng vấn
-    """
-    # TODO: Implement logic — so sánh skills/experience của candidate với requirements của JD,
-    #       tính điểm từng tiêu chí, tổng hợp điểm và đưa ra khuyến nghị hành động
-    raise NotImplementedError
-
-
-# ---------------------------------------------------------------------------
-# 📋 TOOL REGISTRY — Danh sách tool đăng ký cho Agent sử dụng
-# ---------------------------------------------------------------------------
 
 AVAILABLE_TOOLS = {
+    "search_jobs": search_jobs,
     "list_jobs": list_jobs,
     "get_job_description": get_job_description,
-    "get_pending_candidates": get_pending_candidates,
+    "search_candidates": search_candidates,
+    "get_candidate_profile": get_candidate_profile,
     "get_resume_content": get_resume_content,
-    "check_availability": check_availability,
-    "book_interview": book_interview, # ⚠️ HITL Required
     "score_candidate": score_candidate,
-    "notify_candidate_result": notify_candidate_result,  # ⚠️ HITL Required
 }
