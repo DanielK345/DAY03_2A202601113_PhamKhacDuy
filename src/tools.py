@@ -159,38 +159,92 @@ def book_interview(candidate_id: str, time_slot: str, interviewer_id: str) -> st
     raise NotImplementedError
 
 
-def reject_candidate(candidate_id: str, reason: str) -> str:
+def notify_candidate_result(candidate_id: str, result: str, message: str) -> str:
     """
-    Đánh trượt (từ chối) một ứng viên với lý do cụ thể.
+    Gửi thông báo kết quả tuyển dụng tới ứng viên sau khi có quyết định cuối cùng.
 
     ⚠️  HITL REQUIRED (Human-In-The-Loop):
-        Hành động này có tác động trực tiếp đến ứng viên (gửi email từ chối).
-        Agent PHẢI xác nhận với người dùng HR trước khi thực thi.
-        Tuyệt đối không được tự động gọi tool này mà không có phê duyệt của HR.
+        Hành động này gửi email trực tiếp tới ứng viên.
+        Agent PHẢI xác nhận với HR trước khi thực thi.
+        Tuyệt đối không tự động gọi tool này mà không có phê duyệt của HR.
 
-    Sau khi từ chối thành công, hệ thống sẽ tự động:
-      - Gửi Email cảm ơn / từ chối lịch sự tới ứng viên
-      - Cập nhật trạng thái ứng viên thành 'rejected'
+    Sau khi gửi thành công, hệ thống sẽ tự động:
+      - Gửi Email thông báo kết quả (đỗ / trượt) tới ứng viên
+      - Cập nhật trạng thái ứng viên tương ứng ('passed' hoặc 'rejected')
 
     Args:
-        candidate_id (str): Mã ứng viên bị từ chối (Ví dụ: 'CV102').
-        reason (str): Lý do từ chối rõ ràng để đưa vào nội dung email.
-                      Không được để trống.
-                      (Ví dụ: 'Kinh nghiệm chưa đủ 2 năm theo yêu cầu JD').
+        candidate_id (str): Mã ứng viên cần gửi thông báo (Ví dụ: 'CV101', 'CV102').
+        result (str): Kết quả tuyển dụng, chỉ nhận một trong hai giá trị:
+                      - 'passed'   — Ứng viên đỗ, gửi email chúc mừng / mời onboard
+                      - 'rejected' — Ứng viên trượt, gửi email cảm ơn / từ chối lịch sự
+        message (str): Nội dung thông báo gửi kèm trong email.
+                       Không được để trống.
+                       (Ví dụ passed  : 'Chúc mừng! Bạn đã vượt qua vòng phỏng vấn.')
+                       (Ví dụ rejected: 'Kinh nghiệm chưa đủ 2 năm theo yêu cầu JD.')
 
     Returns:
-        str: Xác nhận ứng viên đã bị từ chối và email đã được gửi.
-             Trả về thông báo lỗi nếu ứng viên không tồn tại,
-             đã được xử lý trước đó, hoặc reason bị để trống.
+        str: Xác nhận email đã được gửi và trạng thái ứng viên đã được cập nhật.
+             Trả về thông báo lỗi nếu candidate_id không tồn tại,
+             result không hợp lệ, hoặc message bị để trống.
 
-    Ví dụ kết quả:
-        🚫 ĐÃ TỪ CHỐI ỨNG VIÊN (Đã có xác nhận HITL)
+    Ví dụ kết quả (passed):
+        📬 ĐÃ GỬI THÔNG BÁO KẾT QUẢ (Đã có xác nhận HITL)
+          Ứng viên   : Nguyễn Văn An (CV101)
+          Kết quả    : ✅ ĐỖ
+          📧 [AUTO] Email chúc mừng đã được gửi tới: an.nguyen@email.com
+          🔄 [AUTO] Trạng thái ứng viên → 'passed'
+
+    Ví dụ kết quả (rejected):
+        📬 ĐÃ GỬI THÔNG BÁO KẾT QUẢ (Đã có xác nhận HITL)
           Ứng viên   : Trần Thị Bình (CV102)
-          Lý do      : Kinh nghiệm chưa đủ 2 năm theo yêu cầu JD
+          Kết quả    : ❌ TRƯỢT
           📧 [AUTO] Email cảm ơn/từ chối đã được gửi tới: binh.tran@email.com
           🔄 [AUTO] Trạng thái ứng viên → 'rejected'
     """
-    # TODO: Implement logic — validate HITL approval, cập nhật status, trigger email từ chối
+    # TODO: Implement logic — validate result in ['passed', 'rejected'], validate message,
+    #       cập nhật trạng thái ứng viên, trigger email thông báo kết quả tương ứng
+    raise NotImplementedError
+
+
+def score_candidate(jd_id: str, candidate_id: str) -> str:
+    """
+    Chấm điểm mức độ phù hợp của một ứng viên so với yêu cầu của Job Description.
+
+    So sánh nội dung CV (kỹ năng, số năm kinh nghiệm, tóm tắt bản thân)
+    với các tiêu chí bắt buộc và kỹ năng cộng thêm trong JD,
+    sau đó trả về điểm tổng hợp và nhận xét chi tiết theo từng tiêu chí.
+
+    Args:
+        jd_id (str): Mã Job Description dùng làm tiêu chí chấm điểm
+                     (Ví dụ: 'JD001').
+        candidate_id (str): Mã ứng viên cần được chấm điểm
+                            (Ví dụ: 'CV101').
+
+    Returns:
+        str: Báo cáo chấm điểm gồm:
+               - Điểm tổng (thang 100)
+               - Điểm từng tiêu chí: kinh nghiệm, kỹ năng bắt buộc, kỹ năng cộng thêm
+               - Danh sách kỹ năng match / thiếu so với JD
+               - Khuyến nghị hành động: 'Mời phỏng vấn' / 'Cân nhắc' / 'Từ chối'
+             Trả về thông báo lỗi nếu jd_id hoặc candidate_id không tồn tại.
+
+    Ví dụ kết quả:
+        🎯 KẾT QUẢ CHẤM ĐIỂM CV — CV101 vs JD001
+          Ứng viên        : Nguyễn Văn An
+          Vị trí          : Backend Engineer (Python)
+
+          📊 Điểm tổng    : 85 / 100
+          ├─ Kinh nghiệm  : 30 / 30  (3 năm >= yêu cầu 2 năm ✅)
+          ├─ Kỹ năng bắt buộc: 40 / 50  (thiếu: Redis)
+          └─ Kỹ năng cộng thêm: 15 / 20  (có: Docker; thiếu: Kafka, Kubernetes)
+
+          ✅ Kỹ năng match : Python, FastAPI, PostgreSQL, Docker
+          ❌ Kỹ năng thiếu : Redis
+
+          💡 Khuyến nghị  : Mời phỏng vấn
+    """
+    # TODO: Implement logic — so sánh skills/experience của candidate với requirements của JD,
+    #       tính điểm từng tiêu chí, tổng hợp điểm và đưa ra khuyến nghị hành động
     raise NotImplementedError
 
 
@@ -205,5 +259,6 @@ AVAILABLE_TOOLS = {
     "get_resume_content": get_resume_content,
     "check_availability": check_availability,
     "book_interview": book_interview, # ⚠️ HITL Required
-    "reject_candidate": reject_candidate,  # ⚠️ HITL Required
+    "score_candidate": score_candidate,
+    "notify_candidate_result": notify_candidate_result,  # ⚠️ HITL Required
 }
