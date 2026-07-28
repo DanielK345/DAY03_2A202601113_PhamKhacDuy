@@ -19,11 +19,13 @@ if SRC_DIR not in sys.path:
 
 if sys.stdout.encoding != "utf-8":
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
         pass
 
-from prompts import CHATBOT_BASELINE_PROMPT
+# Import các thành phần từ file của Role 2, Role 3 & Multi-Provider Adapter
+from tools import AVAILABLE_TOOLS
+from prompts import CHATBOT_BASELINE_PROMPT, REACT_SYSTEM_PROMPT, MAX_ITERATIONS
 from providers import get_llm_provider
 
 load_dotenv()
@@ -41,16 +43,20 @@ def run_baseline_chatbot(user_query: str, provider):
     print(f"\n💬 [CHATBOT BASELINE] Câu hỏi: {user_query}")
     response = provider.generate(user_query, system_prompt=CHATBOT_BASELINE_PROMPT).strip()
     print(f"🤖 Chatbot trả lời:\n{response}")
-    return {"answer": response, "tool_calls": 0}
 
 
-def run_baseline_evaluation(test_cases, provider):
-    """Chạy baseline trên toàn bộ bộ đề để Role 5 lưu và đánh giá output."""
-    for test_case in test_cases:
-        print("\n" + "=" * 50)
-        print(f"TEST CASE #{test_case['id']}: {test_case['category']}")
-        print(f"Kỳ vọng: {test_case['expected_behavior']}")
-        run_baseline_chatbot(test_case["question"], provider)
+def run_react_agent(user_query: str, provider):
+    """
+    Vòng lặp ReAct Agent (Thought -> Action -> Observation) có Guardrails.
+
+    ⏳ MỐC 3: phần lõi do Trường viết trong src/agent_core.py, app.py chỉ gọi và in.
+       Hợp đồng hàm đã chốt:
+           run_react_agent(user_query, provider, tools, max_iterations) -> dict
+    """
+    print(f"\n🤖 [REACT AGENT] Câu hỏi: {user_query}")
+    print(f"🛠️ Agent đang có {len(AVAILABLE_TOOLS)} tool: {', '.join(AVAILABLE_TOOLS)}")
+    print(f"🛡️ Guardrail: tối đa {MAX_ITERATIONS} vòng lặp")
+    print("⏳ Vòng lặp ReAct chưa lắp — chờ src/agent_core.py (Mốc 3).")
 
 
 if __name__ == "__main__":
@@ -63,6 +69,14 @@ if __name__ == "__main__":
     print(f"🔌 LLM Provider đang hoạt động: {provider.__class__.__name__} (Model: {model_name})")
 
     tests = load_test_cases()
-    print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json")
-    print("\n--- MỐC 2: CHẠY CHATBOT BASELINE TRÊN TOÀN BỘ TEST CASES ---")
-    run_baseline_evaluation(tests, provider)
+    print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
+    
+    # Tra test case theo id (không dùng chỉ số mảng, để Role 1 thêm/bớt câu vẫn chạy đúng)
+    sample = next((t for t in tests if t.get("id") == 3), tests[0])
+    sample_query = sample["question"]
+    
+    print("--- DEMO 1: CHẠY TRÊN CHATBOT BASELINE ---")
+    run_baseline_chatbot(sample_query, provider)
+    
+    print("\n--- DEMO 2: CHẠY TRÊN REACT AGENT ---")
+    run_react_agent(sample_query, provider)
