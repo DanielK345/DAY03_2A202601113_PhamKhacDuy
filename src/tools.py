@@ -194,6 +194,48 @@ def reject_candidate(candidate_id: str, reason: str) -> str:
     raise NotImplementedError
 
 
+def score_candidate(jd_id: str, candidate_id: str) -> str:
+    """
+    Chấm điểm mức độ phù hợp của một ứng viên so với yêu cầu của Job Description.
+
+    So sánh nội dung CV (kỹ năng, số năm kinh nghiệm, tóm tắt bản thân)
+    với các tiêu chí bắt buộc và kỹ năng cộng thêm trong JD,
+    sau đó trả về điểm tổng hợp và nhận xét chi tiết theo từng tiêu chí.
+
+    Args:
+        jd_id (str): Mã Job Description dùng làm tiêu chí chấm điểm
+                     (Ví dụ: 'JD001').
+        candidate_id (str): Mã ứng viên cần được chấm điểm
+                            (Ví dụ: 'CV101').
+
+    Returns:
+        str: Báo cáo chấm điểm gồm:
+               - Điểm tổng (thang 100)
+               - Điểm từng tiêu chí: kinh nghiệm, kỹ năng bắt buộc, kỹ năng cộng thêm
+               - Danh sách kỹ năng match / thiếu so với JD
+               - Khuyến nghị hành động: 'Mời phỏng vấn' / 'Cân nhắc' / 'Từ chối'
+             Trả về thông báo lỗi nếu jd_id hoặc candidate_id không tồn tại.
+
+    Ví dụ kết quả:
+        🎯 KẾT QUẢ CHẤM ĐIỂM CV — CV101 vs JD001
+          Ứng viên        : Nguyễn Văn An
+          Vị trí          : Backend Engineer (Python)
+
+          📊 Điểm tổng    : 85 / 100
+          ├─ Kinh nghiệm  : 30 / 30  (3 năm >= yêu cầu 2 năm ✅)
+          ├─ Kỹ năng bắt buộc: 40 / 50  (thiếu: Redis)
+          └─ Kỹ năng cộng thêm: 15 / 20  (có: Docker; thiếu: Kafka, Kubernetes)
+
+          ✅ Kỹ năng match : Python, FastAPI, PostgreSQL, Docker
+          ❌ Kỹ năng thiếu : Redis
+
+          💡 Khuyến nghị  : Mời phỏng vấn
+    """
+    # TODO: Implement logic — so sánh skills/experience của candidate với requirements của JD,
+    #       tính điểm từng tiêu chí, tổng hợp điểm và đưa ra khuyến nghị hành động
+    raise NotImplementedError
+
+
 # ---------------------------------------------------------------------------
 # 📋 TOOL REGISTRY — Danh sách tool đăng ký cho Agent sử dụng
 # ---------------------------------------------------------------------------
@@ -205,5 +247,6 @@ AVAILABLE_TOOLS = {
     "get_resume_content": get_resume_content,
     "check_availability": check_availability,
     "book_interview": book_interview, # ⚠️ HITL Required
+    "score_candidate": score_candidate,
     "reject_candidate": reject_candidate,  # ⚠️ HITL Required
 }
